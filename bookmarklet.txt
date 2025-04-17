@@ -1,0 +1,5 @@
+javascript:(function(){
+  const script = document.createElement('script');
+  script.src = 'https://raw.githubusercontent.com/PS22859/auto_report/main/auto-report.js';
+  document.body.appendChild(script);
+})(); 
