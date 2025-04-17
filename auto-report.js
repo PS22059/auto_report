@@ -1,0 +1,161 @@
+function isInsideHidden(el) {
+    return el.closest('[aria-hidden="true"]') !== null;
+  }
+  
+  function randomDelay(min = 1000, max = 2000) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+  
+  async function clickByText(text, delay = 2000) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const el = Array.from(document.querySelectorAll('span'))
+          .find(span => span.innerText.trim() === text);
+        if (el && !isInsideHidden(el)) {
+          const btn = el.closest('[role="button"], div[tabindex]');
+          if (btn && !isInsideHidden(btn)) {
+            btn.click();
+            console.log(`✅ Đã click vào: '${text}'`);
+          } else {
+            el.click();
+            console.log(`⚠️ Click trực tiếp vào span: '${text}'`);
+          }
+          resolve(true);
+        } else {
+          console.log(`❌ Không tìm thấy hoặc phần tử '${text}' nằm trong aria-hidden`);
+          resolve(false);
+        }
+      }, delay);
+    });
+  }
+  
+  async function clickStepsInOrder(steps = [], delay = 2000) {
+    for (const step of steps) {
+      let clicked = false;
+      for (let i = 0; i < 5; i++) {
+        const el = Array.from(document.querySelectorAll('span'))
+          .find(span => span.innerText.trim() === step);
+        if (el && !isInsideHidden(el)) {
+          const btn = el.closest('[role="button"], div[tabindex]');
+          if (btn && !isInsideHidden(btn)) {
+            btn.click();
+            console.log(`✅ Đã click vào: '${step}'`);
+          } else {
+            el.click();
+            console.log(`⚠️ Click trực tiếp vào span: '${step}'`);
+          }
+          clicked = true;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      if (!clicked) {
+        console.log(`❌ Không tìm thấy nút '${step}' sau khi thử nhiều lần hoặc nằm trong aria-hidden`);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  async function reportPostSimple(postIndex) {
+    const postActions = document.querySelectorAll('div[aria-label="Hành động với bài viết này"]');
+    if (!postActions[postIndex]) {
+      console.log(`❌ Không tìm thấy bài viết thứ ${postIndex + 1}`);
+      return;
+    }
+  
+    const parent = postActions[postIndex];
+    const overlay = parent.querySelector('div[role="none"]');
+    if (!overlay || isInsideHidden(overlay)) {
+      console.log(`❌ Không tìm thấy nút mở menu hoặc bị ẩn ở bài viết thứ ${postIndex + 1}`);
+      return;
+    }
+  
+    const anonymous = parent.querySelector('div[role="button"][tabindex="0"]');
+    if (anonymous?.innerText.trim() === "Người tham gia ẩn danh") {
+      console.log(`⚠️ Bỏ qua bài viết ${postIndex + 1} vì là 'Người tham gia ẩn danh'`);
+      return;
+    }
+  
+    overlay.click();
+    console.log(`📌 Đã mở menu bài viết thứ ${postIndex + 1}`);
+    await new Promise(resolve => setTimeout(resolve, randomDelay()));
+  
+    const spans = Array.from(document.querySelectorAll('span')).filter(span =>
+      span.innerText.trim() === "Báo cáo bài viết"
+    );
+  
+    const validSpans = spans.filter(span => {
+      const container = span.closest('div');
+      const text = container?.innerText?.toLowerCase() || '';
+      return !text.includes("quản trị viên nhóm") && !isInsideHidden(span);
+    });
+  
+    if (validSpans.length > 0) {
+      const el = validSpans[0];
+      const btn = el.closest('[role="button"], div[tabindex]');
+      if (btn && !isInsideHidden(btn)) {
+        btn.click();
+        console.log("✅ Đã click vào nút 'Báo cáo bài viết'");
+      } else {
+        el.click();
+        console.log("⚠️ Click trực tiếp vào span 'Báo cáo bài viết'");
+      }
+    } else {
+      console.log("❌ Không tìm thấy nút 'Báo cáo bài viết' phù hợp");
+      return;
+    }
+  
+    await new Promise(resolve => setTimeout(resolve, randomDelay()));
+  
+    const reason1 = await clickByText("Thông tin sai sự thật, lừa đảo hoặc gian lận", randomDelay());
+    if (!reason1) return;
+  
+    await new Promise(resolve => setTimeout(resolve, randomDelay()));
+  
+    const reason2 = await clickByText("Gian lận hoặc lừa đảo", randomDelay());
+    if (!reason2) return;
+  
+    await new Promise(resolve => setTimeout(resolve, randomDelay()));
+    await clickStepsInOrder(["Gửi", "Tiếp", "Xong"], randomDelay());
+  }
+  
+  async function scrollUntilPostsFound(maxScrolls = 30, delay = 1500) {
+    let scrolls = 0;
+    while (scrolls < maxScrolls) {
+      const posts = document.querySelectorAll('div[aria-label="Hành động với bài viết này"]');
+      if (posts.length > 0) {
+        console.log(`✅ Tìm thấy ${posts.length} bài viết. Bắt đầu xử lý.`);
+        return true;
+      }
+  
+      console.log(`🔄 [${scrolls + 1}] Chưa có bài viết. Đang cuộn...`);
+  
+      window.scrollBy({ top: 1000, behavior: 'smooth' });
+  
+      // Mô phỏng tương tác người dùng bằng cách hover nhẹ
+      const hoverZone = document.elementFromPoint(200, 200);
+      if (hoverZone) hoverZone.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  
+      await new Promise(resolve => setTimeout(resolve, delay + randomDelay(500, 1000)));
+      scrolls++;
+    }
+    console.log("❌ Đã cuộn tối đa mà không tìm thấy bài viết.");
+    return false;
+  }
+  
+  (async () => {
+    const found = await scrollUntilPostsFound(30, 1500);
+    if (!found) return;
+  
+    const posts = document.querySelectorAll('div[aria-label="Hành động với bài viết này"]');
+    console.log(`🔍 Bắt đầu báo cáo ${posts.length} bài viết.`);
+  
+    for (let i = 0; i < posts.length; i++) {
+      console.log(`\n🚀 Đang xử lý bài viết thứ ${i + 1}`);
+      await reportPostSimple(i);
+      await new Promise(resolve => setTimeout(resolve, randomDelay(2000, 3000)));
+    }
+  
+    console.log("\n✅ Đã hoàn tất xử lý tất cả các bài viết.");
+  })();
